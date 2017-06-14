@@ -16,7 +16,7 @@ class HikariPoolProvider {
   val initSql = conf.getString("spark-redshift-connector.hikari.connection-init-sql")
   val driverClass = conf.getString("spark-redshift-connector.hikari.driver-class")
 
-  log.info(s"[spark-redshift] initializing hikari pool with params -" +
+  log.info(s"initializing hikari pool with params -" +
     s" maxPoolSize: $maxPoolSize," +
     s" jdbcUrl: $jdbcUrl," +
     s" username: $username," +
