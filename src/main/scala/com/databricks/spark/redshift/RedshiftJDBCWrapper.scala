@@ -17,18 +17,14 @@
 
 package com.databricks.spark.redshift
 
-import java.sql.{ResultSet, PreparedStatement, Connection, Driver, DriverManager, ResultSetMetaData, SQLException}
-import java.util.Properties
+import java.sql.{ResultSet, PreparedStatement, Connection, ResultSetMetaData, SQLException}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ThreadFactory, Executors}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
-import org.apache.spark.SPARK_VERSION
-import org.apache.spark.sql.execution.datasources.jdbc.DriverRegistry
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
 
@@ -39,6 +35,7 @@ import org.slf4j.LoggerFactory
 private[redshift] class JDBCWrapper {
 
   private val log = LoggerFactory.getLogger(getClass)
+  private val hikariPoolProvider = new HikariPoolProvider
 
   private val ec: ExecutionContext = {
     val threadFactory = new ThreadFactory {
@@ -186,36 +183,8 @@ private[redshift] class JDBCWrapper {
       userProvidedDriverClass: Option[String],
       url: String,
       credentials: Option[(String, String)]) : Connection = {
-    val subprotocol = url.stripPrefix("jdbc:").split(":")(0)
-    val driverClass: String = getDriverClass(subprotocol, userProvidedDriverClass)
-    DriverRegistry.register(driverClass)
-    val driverWrapperClass: Class[_] = if (SPARK_VERSION.startsWith("1.4")) {
-      Utils.classForName("org.apache.spark.sql.jdbc.package$DriverWrapper")
-    } else { // Spark 1.5.0+
-      Utils.classForName("org.apache.spark.sql.execution.datasources.jdbc.DriverWrapper")
-    }
-    def getWrapped(d: Driver): Driver = {
-      require(driverWrapperClass.isAssignableFrom(d.getClass))
-      driverWrapperClass.getDeclaredMethod("wrapped").invoke(d).asInstanceOf[Driver]
-    }
-    // Note that we purposely don't call DriverManager.getConnection() here: we want to ensure
-    // that an explicitly-specified user-provided driver class can take precedence over the default
-    // class, but DriverManager.getConnection() might return a according to a different precedence.
-    // At the same time, we don't want to create a driver-per-connection, so we use the
-    // DriverManager's driver instances to handle that singleton logic for us.
-    val driver: Driver = DriverManager.getDrivers.asScala.collectFirst {
-      case d if driverWrapperClass.isAssignableFrom(d.getClass)
-        && getWrapped(d).getClass.getCanonicalName == driverClass => d
-      case d if d.getClass.getCanonicalName == driverClass => d
-    }.getOrElse {
-      throw new IllegalArgumentException(s"Did not find registered driver with class $driverClass")
-    }
-    val properties = new Properties()
-    credentials.foreach { case(user, password) =>
-      properties.setProperty("user", user)
-      properties.setProperty("password", password)
-    }
-    driver.connect(url, properties)
+    //TODO needs better refactoring cuz for now this functions contains unused params
+    hikariPoolProvider.getConnection(credentials)
   }
 
   /**

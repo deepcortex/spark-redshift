@@ -60,6 +60,8 @@ object SparkRedshiftBuild extends Build {
       scalacOptions ++= Seq("-target:jvm-1.6"),
       javacOptions ++= Seq("-source", "1.6", "-target", "1.6"),
       libraryDependencies ++= Seq(
+        "com.zaxxer" % "HikariCP" % "2.6.1",
+        "com.typesafe" % "config" % "1.2.1",
         "org.slf4j" % "slf4j-api" % "1.7.5",
         "com.eclipsesource.minimal-json" % "minimal-json" % "0.9.4",
         // We require spark-avro, but avro-mapred must be provided to match Hadoop version.
